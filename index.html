@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pickleball RSVP</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="Pickleball RSVP coordinator">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Four spots, first yeses get them</p>
+            <h1>Pickleball RSVP</h1>
+          </div>
+          <div class="hero-actions">
+            <button id="copyInvite" class="icon-button" type="button" title="Copy invite" aria-label="Copy invite">
+              <span aria-hidden="true">&#128203;</span>
+            </button>
+            <button id="resetApp" class="icon-button danger" type="button" title="Reset" aria-label="Reset">
+              <span aria-hidden="true">&#8635;</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="event-panel">
+          <label>
+            Date and time
+            <input id="eventTime" type="text" value="Thursday at 6:00 PM" maxlength="48" />
+          </label>
+          <label>
+            Location
+            <input id="eventLocation" type="text" value="Riverside courts" maxlength="56" />
+          </label>
+          <label>
+            Extra note
+            <input id="eventNote" type="text" value="Reply yes if you can play. First 4 are in." maxlength="90" />
+          </label>
+        </section>
+
+        <section class="action-strip">
+          <a id="emailInvite" class="primary-action" href="#">Email invite</a>
+          <a id="textInvite" class="primary-action secondary" href="#">Text invite</a>
+          <a id="emailReminder" class="primary-action quiet" href="#">Email reminder</a>
+          <a id="textReminder" class="primary-action quiet" href="#">Text reminder</a>
+        </section>
+
+        <section class="main-grid">
+          <aside class="panel">
+            <div class="section-heading">
+              <h2>Friends</h2>
+              <span id="friendCount">0</span>
+            </div>
+
+            <form id="friendForm" class="friend-form">
+              <input id="friendName" type="text" placeholder="Name" maxlength="24" autocomplete="off" />
+              <input id="friendEmail" type="email" placeholder="Email" maxlength="60" autocomplete="off" />
+              <input id="friendPhone" type="tel" placeholder="Phone" maxlength="24" autocomplete="off" />
+              <button type="submit">Add</button>
+            </form>
+
+            <div id="friendList" class="friend-list" aria-live="polite"></div>
+          </aside>
+
+          <section class="panel">
+            <div class="section-heading">
+              <h2>Game status</h2>
+              <span id="spotCount">0/4</span>
+            </div>
+
+            <div class="status-grid">
+              <section>
+                <h3>Confirmed</h3>
+                <div id="confirmedList" class="status-list"></div>
+              </section>
+              <section>
+                <h3>Waitlist</h3>
+                <div id="waitlistList" class="status-list"></div>
+              </section>
+            </div>
+
+            <div class="message-preview">
+              <h3>Invite message</h3>
+              <p id="invitePreview"></p>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <template id="friendTemplate">
+      <article class="friend-row">
+        <div>
+          <strong class="friend-name"></strong>
+          <span class="friend-contact"></span>
+        </div>
+        <div class="row-actions">
+          <button class="yes" type="button">Yes</button>
+          <button class="no" type="button">No</button>
+          <button class="remove" type="button" title="Remove" aria-label="Remove">&times;</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
