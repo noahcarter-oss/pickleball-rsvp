@@ -1,13 +1,16 @@
 const STORAGE_KEY = "pickleball-rsvp";
 const MAX_CONFIRMED = 4;
 
+const oldDefaultNames = ["Avery", "Blake", "Casey", "Devon", "Emerson", "Finley"];
 const defaultFriends = [
-  { name: "Avery", email: "", phone: "" },
-  { name: "Blake", email: "", phone: "" },
-  { name: "Casey", email: "", phone: "" },
-  { name: "Devon", email: "", phone: "" },
-  { name: "Emerson", email: "", phone: "" },
-  { name: "Finley", email: "", phone: "" },
+  { name: "Jane", email: "", phone: "" },
+  { name: "Jamie", email: "", phone: "" },
+  { name: "Steve", email: "", phone: "" },
+  { name: "Pam", email: "", phone: "" },
+  { name: "Bob", email: "", phone: "" },
+  { name: "Bill", email: "", phone: "" },
+  { name: "Tim", email: "", phone: "" },
+  { name: "Anne", email: "", phone: "" },
 ];
 
 const state = loadState();
@@ -41,12 +44,13 @@ function loadState() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
+      const friends = Array.isArray(parsed.friends) ? parsed.friends : [];
       return {
         eventTime: parsed.eventTime || "Thursday at 6:00 PM",
         eventLocation: parsed.eventLocation || "Riverside courts",
         eventNote: parsed.eventNote || "Reply yes if you can play. First 4 are in.",
         nextOrder: Number(parsed.nextOrder) || 1,
-        friends: Array.isArray(parsed.friends) ? parsed.friends : [],
+        friends: shouldReplaceOldDefaults(friends) ? createDefaultFriends() : friends,
       };
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -58,15 +62,32 @@ function loadState() {
     eventLocation: "Riverside courts",
     eventNote: "Reply yes if you can play. First 4 are in.",
     nextOrder: 1,
-    friends: defaultFriends.map((friend) => ({
-      id: crypto.randomUUID(),
-      name: friend.name,
-      email: friend.email,
-      phone: friend.phone,
-      status: "invited",
-      order: null,
-    })),
+    friends: createDefaultFriends(),
   };
+}
+
+function createDefaultFriends() {
+  return defaultFriends.map((friend) => ({
+    id: crypto.randomUUID(),
+    name: friend.name,
+    email: friend.email,
+    phone: friend.phone,
+    status: "invited",
+    order: null,
+  }));
+}
+
+function shouldReplaceOldDefaults(friends) {
+  if (friends.length !== oldDefaultNames.length) return false;
+  return friends.every((friend, index) => {
+    return (
+      friend.name === oldDefaultNames[index] &&
+      !friend.email &&
+      !friend.phone &&
+      friend.status === "invited" &&
+      friend.order === null
+    );
+  });
 }
 
 function saveState() {
