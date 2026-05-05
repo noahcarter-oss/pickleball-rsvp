@@ -198,10 +198,19 @@ input:focus {
   background: var(--blue);
 }
 
+.primary-action.copy {
+  background: var(--court);
+}
+
 .primary-action.quiet {
   background: var(--field);
   color: var(--court-dark);
   border: 1px solid var(--line);
+}
+
+.primary-action.disabled {
+  cursor: default;
+  opacity: 0.48;
 }
 
 .main-grid {

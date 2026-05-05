@@ -20,7 +20,8 @@ const els = {
   textInvite: document.querySelector("#textInvite"),
   emailReminder: document.querySelector("#emailReminder"),
   textReminder: document.querySelector("#textReminder"),
-  copyInvite: document.querySelector("#copyInvite"),
+  copyInviteText: document.querySelector("#copyInviteText"),
+  copyReminderText: document.querySelector("#copyReminderText"),
   resetApp: document.querySelector("#resetApp"),
   friendForm: document.querySelector("#friendForm"),
   friendName: document.querySelector("#friendName"),
@@ -206,12 +207,12 @@ function addFriend(event) {
 }
 
 function inviteMessage() {
-  return `Pickleball? ${state.eventTime} at ${state.eventLocation}. ${state.eventNote}`;
+  return `Pickleball? ${state.eventTime.trim()} at ${state.eventLocation.trim()}. ${state.eventNote.trim()}`;
 }
 
 function reminderMessage() {
   const names = confirmedFriends().map((friend) => friend.name).join(", ");
-  return `Reminder: pickleball is ${state.eventTime} at ${state.eventLocation}. Confirmed: ${names || "no one yet"}.`;
+  return `Reminder: pickleball is ${state.eventTime.trim()} at ${state.eventLocation.trim()}. Confirmed: ${names || "no one yet"}.`;
 }
 
 function updateMessageLinks() {
@@ -224,11 +225,16 @@ function updateMessageLinks() {
   els.textInvite.href = smsLink(phones, inviteMessage());
   els.emailReminder.href = mailtoLink(confirmedEmails, "Pickleball reminder", reminderMessage());
   els.textReminder.href = smsLink(confirmedPhones, reminderMessage());
+  setActionState(els.emailInvite, Boolean(emails), "Add email addresses to use this.");
+  setActionState(els.textInvite, Boolean(phones), "Add phone numbers to use this.");
+  setActionState(els.emailReminder, Boolean(confirmedEmails), "Confirm players with emails first.");
+  setActionState(els.textReminder, Boolean(confirmedPhones), "Confirm players with phone numbers first.");
+}
 
-  els.emailInvite.textContent = emails ? "Email invite" : "Copy invite";
-  els.textInvite.textContent = phones ? "Text invite" : "Copy invite";
-  els.emailReminder.textContent = confirmedEmails ? "Email reminder" : "Copy reminder";
-  els.textReminder.textContent = confirmedPhones ? "Text reminder" : "Copy reminder";
+function setActionState(element, enabled, disabledTitle) {
+  element.classList.toggle("disabled", !enabled);
+  element.setAttribute("aria-disabled", enabled ? "false" : "true");
+  element.title = enabled ? "" : disabledTitle;
 }
 
 function mailtoLink(recipients, subject, body) {
@@ -251,14 +257,12 @@ function copyText(text, button) {
 function handleInviteClick(event) {
   if (event.currentTarget.getAttribute("href") === "#") {
     event.preventDefault();
-    copyText(inviteMessage(), event.currentTarget);
   }
 }
 
 function handleReminderClick(event) {
   if (event.currentTarget.getAttribute("href") === "#") {
     event.preventDefault();
-    copyText(reminderMessage(), event.currentTarget);
   }
 }
 
@@ -268,7 +272,8 @@ function resetApp() {
 }
 
 els.friendForm.addEventListener("submit", addFriend);
-els.copyInvite.addEventListener("click", () => copyText(inviteMessage(), els.copyInvite));
+els.copyInviteText.addEventListener("click", () => copyText(inviteMessage(), els.copyInviteText));
+els.copyReminderText.addEventListener("click", () => copyText(reminderMessage(), els.copyReminderText));
 els.emailInvite.addEventListener("click", handleInviteClick);
 els.textInvite.addEventListener("click", handleInviteClick);
 els.emailReminder.addEventListener("click", handleReminderClick);
@@ -277,7 +282,7 @@ els.resetApp.addEventListener("click", resetApp);
 
 ["eventTime", "eventLocation", "eventNote"].forEach((key) => {
   els[key].addEventListener("input", () => {
-    state[key] = els[key].value.trim();
+    state[key] = els[key].value;
     render();
   });
 });
