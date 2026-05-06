@@ -70,6 +70,7 @@ p {
 }
 
 .hero,
+.app-status,
 .event-panel,
 .action-strip,
 .main-grid {
@@ -144,6 +145,19 @@ h3 {
   color: #ffe5dd;
 }
 
+.app-status {
+  border-bottom: 1px solid var(--line);
+  background: #f7f9f5;
+  color: var(--court-dark);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.app-status.error {
+  background: #fff0eb;
+  color: #984c31;
+}
+
 .event-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -196,10 +210,6 @@ input:focus {
 
 .primary-action.secondary {
   background: var(--blue);
-}
-
-.primary-action.copy {
-  background: var(--court);
 }
 
 .primary-action.quiet {
@@ -377,6 +387,7 @@ input:focus {
   }
 
   .hero,
+  .app-status,
   .event-panel,
   .action-strip,
   .main-grid {

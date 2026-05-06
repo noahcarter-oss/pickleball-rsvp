@@ -1,7 +1,7 @@
-const STORAGE_KEY = "pickleball-rsvp";
+const SUPABASE_URL = "https://gikfiuargopavlzcbcnu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_gi5_tJVl_-Ni_2HF6UEduA_D9DCwBL5";
 const MAX_CONFIRMED = 4;
 
-const oldDefaultNames = ["Avery", "Blake", "Casey", "Devon", "Emerson", "Finley"];
 const defaultFriends = [
   { name: "Jane", email: "", phone: "" },
   { name: "Jamie", email: "", phone: "" },
@@ -13,9 +13,16 @@ const defaultFriends = [
   { name: "Anne", email: "", phone: "" },
 ];
 
-const state = loadState();
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const state = {
+  game: null,
+  friends: [],
+  saving: false,
+};
 
 const els = {
+  appStatus: document.querySelector("#appStatus"),
   eventTime: document.querySelector("#eventTime"),
   eventLocation: document.querySelector("#eventLocation"),
   eventNote: document.querySelector("#eventNote"),
@@ -23,8 +30,6 @@ const els = {
   textInvite: document.querySelector("#textInvite"),
   emailReminder: document.querySelector("#emailReminder"),
   textReminder: document.querySelector("#textReminder"),
-  copyInviteText: document.querySelector("#copyInviteText"),
-  copyReminderText: document.querySelector("#copyReminderText"),
   resetApp: document.querySelector("#resetApp"),
   friendForm: document.querySelector("#friendForm"),
   friendName: document.querySelector("#friendName"),
@@ -39,84 +44,132 @@ const els = {
   friendTemplate: document.querySelector("#friendTemplate"),
 };
 
-function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      const friends = Array.isArray(parsed.friends) ? parsed.friends : [];
-      return {
-        eventTime: parsed.eventTime || "Thursday at 6:00 PM",
-        eventLocation: parsed.eventLocation || "Riverside courts",
-        eventNote: parsed.eventNote || "Reply yes if you can play. First 4 are in.",
-        nextOrder: Number(parsed.nextOrder) || 1,
-        friends: shouldReplaceOldDefaults(friends) ? createDefaultFriends() : friends,
-      };
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
+async function init() {
+  try {
+    setStatus("Connecting to shared game...");
+    await loadOrCreateGame();
+    await loadFriends();
+    if (!state.friends.length) {
+      await createDefaultInvitees();
+      await loadFriends();
     }
+    render();
+    setStatus("Shared game is live.");
+    window.setInterval(loadAndRender, 15000);
+  } catch (error) {
+    console.error(error);
+    setStatus(`Could not load shared game: ${error.message}`, true);
   }
-
-  return {
-    eventTime: "Thursday at 6:00 PM",
-    eventLocation: "Riverside courts",
-    eventNote: "Reply yes if you can play. First 4 are in.",
-    nextOrder: 1,
-    friends: createDefaultFriends(),
-  };
 }
 
-function createDefaultFriends() {
-  return defaultFriends.map((friend) => ({
-    id: crypto.randomUUID(),
+async function loadOrCreateGame() {
+  const requestedGameId = new URLSearchParams(window.location.search).get("game");
+
+  if (requestedGameId) {
+    const { data, error } = await db.from("games").select("*").eq("id", requestedGameId).single();
+    if (error) throw error;
+    state.game = data;
+    return;
+  }
+
+  const { data: latest, error: latestError } = await db
+    .from("games")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (latestError) throw latestError;
+
+  if (latest.length) {
+    state.game = latest[0];
+  } else {
+    const { data, error } = await db
+      .from("games")
+      .insert({
+        title: "Pickleball",
+        game_time: "Thursday at 6:00 PM",
+        location: "Riverside courts",
+        note: "Reply yes if you can play. First 4 are in.",
+        max_players: MAX_CONFIRMED,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    state.game = data;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("game", state.game.id);
+  window.history.replaceState({}, "", url.toString());
+}
+
+async function loadFriends() {
+  const { data, error } = await db
+    .from("invitees")
+    .select("*")
+    .eq("game_id", state.game.id)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  state.friends = normalizeStatuses(data || []);
+}
+
+async function loadAndRender() {
+  if (state.saving || !state.game) return;
+  await loadOrCreateGame();
+  await loadFriends();
+  render();
+}
+
+async function createDefaultInvitees() {
+  const rows = defaultFriends.map((friend) => ({
+    game_id: state.game.id,
     name: friend.name,
     email: friend.email,
     phone: friend.phone,
+    token: crypto.randomUUID(),
     status: "invited",
-    order: null,
   }));
+
+  const { error } = await db.from("invitees").insert(rows);
+  if (error) throw error;
 }
 
-function shouldReplaceOldDefaults(friends) {
-  if (friends.length !== oldDefaultNames.length) return false;
-  return friends.every((friend, index) => {
-    return (
-      friend.name === oldDefaultNames[index] &&
-      !friend.email &&
-      !friend.phone &&
-      friend.status === "invited" &&
-      friend.order === null
-    );
+function normalizeStatuses(friends) {
+  const yeses = friends
+    .filter((friend) => friend.status === "confirmed" || friend.status === "waitlist")
+    .sort(byResponse);
+  const confirmedIds = new Set(yeses.slice(0, MAX_CONFIRMED).map((friend) => friend.id));
+
+  return friends.map((friend) => {
+    if (friend.status !== "confirmed" && friend.status !== "waitlist") return friend;
+    return { ...friend, status: confirmedIds.has(friend.id) ? "confirmed" : "waitlist" };
   });
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 function confirmedFriends() {
-  return state.friends.filter((friend) => friend.status === "confirmed").sort(byOrder);
+  return state.friends.filter((friend) => friend.status === "confirmed").sort(byResponse);
 }
 
 function waitlistedFriends() {
-  return state.friends.filter((friend) => friend.status === "waitlist").sort(byOrder);
+  return state.friends.filter((friend) => friend.status === "waitlist").sort(byResponse);
 }
 
-function byOrder(a, b) {
-  return (a.order || 0) - (b.order || 0);
+function byResponse(a, b) {
+  return new Date(a.responded_at || a.created_at) - new Date(b.responded_at || b.created_at);
 }
 
 function render() {
-  els.eventTime.value = state.eventTime;
-  els.eventLocation.value = state.eventLocation;
-  els.eventNote.value = state.eventNote;
+  els.eventTime.value = state.game.game_time;
+  els.eventLocation.value = state.game.location;
+  els.eventNote.value = state.game.note;
   els.friendCount.textContent = state.friends.length;
   els.spotCount.textContent = `${confirmedFriends().length}/${MAX_CONFIRMED}`;
   els.invitePreview.textContent = inviteMessage();
   renderFriends();
   renderStatusLists();
   updateMessageLinks();
-  saveState();
 }
 
 function renderFriends() {
@@ -133,8 +186,9 @@ function renderFriends() {
     const removeButton = row.querySelector(".remove");
 
     yesButton.textContent = friend.status === "waitlist" ? "Waitlisted" : "Yes";
-    yesButton.disabled = friend.status === "confirmed" || friend.status === "waitlist";
-    noButton.disabled = friend.status === "declined";
+    yesButton.disabled = friend.status === "confirmed" || friend.status === "waitlist" || state.saving;
+    noButton.disabled = friend.status === "declined" || state.saving;
+    removeButton.disabled = state.saving;
 
     yesButton.addEventListener("click", () => markYes(friend.id));
     noButton.addEventListener("click", () => markDeclined(friend.id));
@@ -176,64 +230,95 @@ function contactLabel(friend) {
   return parts.length ? parts.join(" | ") : "No contact saved";
 }
 
-function markYes(id) {
-  const friend = state.friends.find((item) => item.id === id);
-  if (!friend) return;
-
-  friend.order = state.nextOrder;
-  state.nextOrder += 1;
-  friend.status = confirmedFriends().length < MAX_CONFIRMED ? "confirmed" : "waitlist";
-  render();
+async function markYes(id) {
+  await saveChange(async () => {
+    const now = new Date().toISOString();
+    const { error } = await db.from("invitees").update({ status: "confirmed", responded_at: now }).eq("id", id);
+    if (error) throw error;
+  });
 }
 
-function markDeclined(id) {
-  const friend = state.friends.find((item) => item.id === id);
-  if (!friend) return;
-
-  friend.status = "declined";
-  friend.order = null;
-  promoteWaitlist();
-  render();
+async function markDeclined(id) {
+  await saveChange(async () => {
+    const { error } = await db.from("invitees").update({ status: "declined", responded_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw error;
+  });
 }
 
-function removeFriend(id) {
-  state.friends = state.friends.filter((friend) => friend.id !== id);
-  promoteWaitlist();
-  render();
+async function removeFriend(id) {
+  await saveChange(async () => {
+    const { error } = await db.from("invitees").delete().eq("id", id);
+    if (error) throw error;
+  });
 }
 
-function promoteWaitlist() {
-  while (confirmedFriends().length < MAX_CONFIRMED && waitlistedFriends().length) {
-    waitlistedFriends()[0].status = "confirmed";
-  }
-}
-
-function addFriend(event) {
+async function addFriend(event) {
   event.preventDefault();
 
   const name = els.friendName.value.trim();
   if (!name) return;
 
-  state.friends.push({
-    id: crypto.randomUUID(),
-    name,
-    email: els.friendEmail.value.trim(),
-    phone: els.friendPhone.value.trim(),
-    status: "invited",
-    order: null,
-  });
+  await saveChange(async () => {
+    const { error } = await db.from("invitees").insert({
+      game_id: state.game.id,
+      name,
+      email: els.friendEmail.value.trim(),
+      phone: els.friendPhone.value.trim(),
+      token: crypto.randomUUID(),
+      status: "invited",
+    });
 
-  els.friendForm.reset();
+    if (error) throw error;
+    els.friendForm.reset();
+  });
+}
+
+async function saveGameField(key, value) {
+  state.game[key] = value;
   render();
+
+  window.clearTimeout(saveGameField.timer);
+  saveGameField.timer = window.setTimeout(async () => {
+    await saveChange(async () => {
+      const { error } = await db.from("games").update({ [key]: state.game[key] }).eq("id", state.game.id);
+      if (error) throw error;
+    }, false);
+  }, 450);
+}
+
+async function saveChange(action, reloadAfter = true) {
+  try {
+    state.saving = true;
+    setStatus("Saving...");
+    render();
+    await action();
+    if (reloadAfter) {
+      await loadFriends();
+    }
+    render();
+    setStatus("Saved to shared game.");
+  } catch (error) {
+    console.error(error);
+    setStatus(`Could not save: ${error.message}`, true);
+  } finally {
+    state.saving = false;
+    render();
+  }
 }
 
 function inviteMessage() {
-  return `Pickleball? ${state.eventTime.trim()} at ${state.eventLocation.trim()}. ${state.eventNote.trim()}`;
+  return `Pickleball? ${state.game.game_time.trim()} at ${state.game.location.trim()}. ${state.game.note.trim()} RSVP here: ${shareUrl()}`;
 }
 
 function reminderMessage() {
   const names = confirmedFriends().map((friend) => friend.name).join(", ");
-  return `Reminder: pickleball is ${state.eventTime.trim()} at ${state.eventLocation.trim()}. Confirmed: ${names || "no one yet"}.`;
+  return `Reminder: pickleball is ${state.game.game_time.trim()} at ${state.game.location.trim()}. Confirmed: ${names || "no one yet"}.`;
+}
+
+function shareUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("game", state.game.id);
+  return url.toString();
 }
 
 function updateMessageLinks() {
@@ -242,7 +327,7 @@ function updateMessageLinks() {
   const confirmedEmails = confirmedFriends().map((friend) => friend.email).filter(Boolean).join(",");
   const confirmedPhones = confirmedFriends().map((friend) => friend.phone).filter(Boolean).join(",");
 
-  els.emailInvite.href = mailtoLink(emails, "Pickleball?", inviteMessage());
+  els.emailInvite.href = mailtoLink(emails, "Pickleball RSVP", inviteMessage());
   els.textInvite.href = smsLink(phones, inviteMessage());
   els.emailReminder.href = mailtoLink(confirmedEmails, "Pickleball reminder", reminderMessage());
   els.textReminder.href = smsLink(confirmedPhones, reminderMessage());
@@ -268,44 +353,36 @@ function smsLink(recipients, body) {
   return `sms:${recipients}?body=${encodeURIComponent(body)}`;
 }
 
-function copyText(text, button) {
-  navigator.clipboard.writeText(text).then(() => {
-    button.classList.add("copied");
-    window.setTimeout(() => button.classList.remove("copied"), 900);
+function handleDisabledLink(event) {
+  if (event.currentTarget.getAttribute("href") === "#") {
+    event.preventDefault();
+  }
+}
+
+async function resetRsvps() {
+  await saveChange(async () => {
+    const { error } = await db
+      .from("invitees")
+      .update({ status: "invited", responded_at: null })
+      .eq("game_id", state.game.id);
+    if (error) throw error;
   });
 }
 
-function handleInviteClick(event) {
-  if (event.currentTarget.getAttribute("href") === "#") {
-    event.preventDefault();
-  }
-}
-
-function handleReminderClick(event) {
-  if (event.currentTarget.getAttribute("href") === "#") {
-    event.preventDefault();
-  }
-}
-
-function resetApp() {
-  localStorage.removeItem(STORAGE_KEY);
-  window.location.reload();
+function setStatus(message, isError = false) {
+  els.appStatus.textContent = message;
+  els.appStatus.classList.toggle("error", isError);
 }
 
 els.friendForm.addEventListener("submit", addFriend);
-els.copyInviteText.addEventListener("click", () => copyText(inviteMessage(), els.copyInviteText));
-els.copyReminderText.addEventListener("click", () => copyText(reminderMessage(), els.copyReminderText));
-els.emailInvite.addEventListener("click", handleInviteClick);
-els.textInvite.addEventListener("click", handleInviteClick);
-els.emailReminder.addEventListener("click", handleReminderClick);
-els.textReminder.addEventListener("click", handleReminderClick);
-els.resetApp.addEventListener("click", resetApp);
+els.emailInvite.addEventListener("click", handleDisabledLink);
+els.textInvite.addEventListener("click", handleDisabledLink);
+els.emailReminder.addEventListener("click", handleDisabledLink);
+els.textReminder.addEventListener("click", handleDisabledLink);
+els.resetApp.addEventListener("click", resetRsvps);
 
-["eventTime", "eventLocation", "eventNote"].forEach((key) => {
-  els[key].addEventListener("input", () => {
-    state[key] = els[key].value;
-    render();
-  });
-});
+els.eventTime.addEventListener("input", () => saveGameField("game_time", els.eventTime.value));
+els.eventLocation.addEventListener("input", () => saveGameField("location", els.eventLocation.value));
+els.eventNote.addEventListener("input", () => saveGameField("note", els.eventNote.value));
 
-render();
+init();
