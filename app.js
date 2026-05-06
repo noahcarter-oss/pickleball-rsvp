@@ -19,6 +19,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const state = {
   game: null,
   friends: [],
+  editingFriendId: null,
   saving: false,
 };
 
@@ -198,23 +199,63 @@ function renderFriends() {
   state.friends.forEach((friend) => {
     const row = els.friendTemplate.content.firstElementChild.cloneNode(true);
     row.classList.add(friend.status);
-    row.querySelector(".friend-name").textContent = friend.name;
-    row.querySelector(".friend-contact").textContent = contactLabel(friend);
 
-    const yesButton = row.querySelector(".yes");
-    const noButton = row.querySelector(".no");
-    const removeButton = row.querySelector(".remove");
+    if (state.editingFriendId === friend.id) {
+      renderFriendEditor(row, friend);
+      els.friendList.append(row);
+      return;
+    }
 
-    yesButton.textContent = friend.status === "waitlist" ? "Waitlisted" : "Yes";
-    yesButton.disabled = friend.status === "confirmed" || friend.status === "waitlist" || state.saving;
-    noButton.disabled = friend.status === "declined" || state.saving;
-    removeButton.disabled = state.saving;
-
-    yesButton.addEventListener("click", () => markYes(friend.id));
-    noButton.addEventListener("click", () => markDeclined(friend.id));
-    removeButton.addEventListener("click", () => removeFriend(friend.id));
-
+    renderFriendSummary(row, friend);
     els.friendList.append(row);
+  });
+}
+
+function renderFriendSummary(row, friend) {
+  row.querySelector(".friend-name").textContent = friend.name;
+  row.querySelector(".friend-contact").textContent = contactLabel(friend);
+
+  const editButton = row.querySelector(".edit");
+  const yesButton = row.querySelector(".yes");
+  const noButton = row.querySelector(".no");
+  const removeButton = row.querySelector(".remove");
+
+  yesButton.textContent = friend.status === "waitlist" ? "Waitlisted" : "Yes";
+  editButton.disabled = state.saving;
+  yesButton.disabled = friend.status === "confirmed" || friend.status === "waitlist" || state.saving;
+  noButton.disabled = friend.status === "declined" || state.saving;
+  removeButton.disabled = state.saving;
+
+  editButton.addEventListener("click", () => {
+    state.editingFriendId = friend.id;
+    render();
+  });
+  yesButton.addEventListener("click", () => markYes(friend.id));
+  noButton.addEventListener("click", () => markDeclined(friend.id));
+  removeButton.addEventListener("click", () => removeFriend(friend.id));
+}
+
+function renderFriendEditor(row, friend) {
+  row.classList.add("editing");
+  row.innerHTML = `
+    <form class="edit-form">
+      <input name="name" type="text" value="${escapeAttribute(friend.name)}" placeholder="Name" maxlength="24" />
+      <input name="email" type="email" value="${escapeAttribute(friend.email || "")}" placeholder="Email" maxlength="60" />
+      <input name="phone" type="tel" value="${escapeAttribute(friend.phone || "")}" placeholder="Phone" maxlength="24" />
+      <div class="edit-actions">
+        <button class="save" type="submit">Save</button>
+        <button class="cancel" type="button">Cancel</button>
+      </div>
+    </form>
+  `;
+
+  const form = row.querySelector(".edit-form");
+  const cancelButton = row.querySelector(".cancel");
+
+  form.addEventListener("submit", (event) => saveFriendEdits(event, friend.id));
+  cancelButton.addEventListener("click", () => {
+    state.editingFriendId = null;
+    render();
   });
 }
 
@@ -266,9 +307,31 @@ async function markDeclined(id) {
 }
 
 async function removeFriend(id) {
+  if (state.editingFriendId === id) state.editingFriendId = null;
   await saveChange(async () => {
     const { error } = await db.from("invitees").delete().eq("id", id);
     if (error) throw error;
+  });
+}
+
+async function saveFriendEdits(event, id) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const name = form.elements.name.value.trim();
+  if (!name) return;
+
+  await saveChange(async () => {
+    const { error } = await db
+      .from("invitees")
+      .update({
+        name,
+        email: form.elements.email.value.trim(),
+        phone: form.elements.phone.value.trim(),
+      })
+      .eq("id", id);
+
+    if (error) throw error;
+    state.editingFriendId = null;
   });
 }
 
@@ -399,6 +462,14 @@ async function resetRsvps() {
 function setStatus(message, isError = false) {
   els.appStatus.textContent = message;
   els.appStatus.classList.toggle("error", isError);
+}
+
+function escapeAttribute(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 els.friendForm.addEventListener("submit", addFriend);

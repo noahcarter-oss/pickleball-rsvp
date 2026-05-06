@@ -292,6 +292,10 @@ input:focus {
   padding: 10px;
 }
 
+.friend-row.editing {
+  display: block;
+}
+
 .friend-row.confirmed {
   border-color: rgba(47, 125, 100, 0.45);
   background: #f4fbf3;
@@ -341,6 +345,11 @@ input:focus {
   color: #984c31;
 }
 
+.row-actions .edit {
+  background: #eef4ff;
+  color: #244d8f;
+}
+
 .row-actions .remove {
   min-width: 36px;
   color: var(--muted);
@@ -351,6 +360,33 @@ input:focus {
 .row-actions button:disabled {
   cursor: default;
   opacity: 0.48;
+}
+
+.edit-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.edit-actions button {
+  min-height: 40px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 850;
+}
+
+.edit-actions .save {
+  background: var(--court);
+}
+
+.edit-actions .cancel {
+  background: var(--muted);
 }
 
 .status-grid {
