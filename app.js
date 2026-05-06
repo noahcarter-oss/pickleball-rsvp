@@ -11,6 +11,7 @@ const defaultFriends = [
   { name: "Bill", email: "", phone: "" },
   { name: "Tim", email: "", phone: "" },
   { name: "Anne", email: "", phone: "" },
+  { name: "Noah", email: "", phone: "" },
 ];
 
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -26,10 +27,8 @@ const els = {
   eventTime: document.querySelector("#eventTime"),
   eventLocation: document.querySelector("#eventLocation"),
   eventNote: document.querySelector("#eventNote"),
-  emailInvite: document.querySelector("#emailInvite"),
-  textInvite: document.querySelector("#textInvite"),
-  emailReminder: document.querySelector("#emailReminder"),
-  textReminder: document.querySelector("#textReminder"),
+  sendInvites: document.querySelector("#sendInvites"),
+  sendReminders: document.querySelector("#sendReminders"),
   resetApp: document.querySelector("#resetApp"),
   friendForm: document.querySelector("#friendForm"),
   friendName: document.querySelector("#friendName"),
@@ -51,6 +50,9 @@ async function init() {
     await loadFriends();
     if (!state.friends.length) {
       await createDefaultInvitees();
+      await loadFriends();
+    } else {
+      await backfillDefaultInvitees();
       await loadFriends();
     }
     render();
@@ -136,6 +138,24 @@ async function createDefaultInvitees() {
   if (error) throw error;
 }
 
+async function backfillDefaultInvitees() {
+  const existingNames = new Set(state.friends.map((friend) => friend.name.toLowerCase()));
+  const missingFriends = defaultFriends.filter((friend) => !existingNames.has(friend.name.toLowerCase()));
+  if (!missingFriends.length) return;
+
+  const rows = missingFriends.map((friend) => ({
+    game_id: state.game.id,
+    name: friend.name,
+    email: friend.email,
+    phone: friend.phone,
+    token: crypto.randomUUID(),
+    status: "invited",
+  }));
+
+  const { error } = await db.from("invitees").insert(rows);
+  if (error) throw error;
+}
+
 function normalizeStatuses(friends) {
   const yeses = friends
     .filter((friend) => friend.status === "confirmed" || friend.status === "waitlist")
@@ -169,7 +189,7 @@ function render() {
   els.invitePreview.textContent = inviteMessage();
   renderFriends();
   renderStatusLists();
-  updateMessageLinks();
+  updateSendButtons();
 }
 
 function renderFriends() {
@@ -321,41 +341,48 @@ function shareUrl() {
   return url.toString();
 }
 
-function updateMessageLinks() {
+function updateSendButtons() {
   const emails = state.friends.map((friend) => friend.email).filter(Boolean).join(",");
-  const phones = state.friends.map((friend) => friend.phone).filter(Boolean).join(",");
   const confirmedEmails = confirmedFriends().map((friend) => friend.email).filter(Boolean).join(",");
-  const confirmedPhones = confirmedFriends().map((friend) => friend.phone).filter(Boolean).join(",");
-
-  els.emailInvite.href = mailtoLink(emails, "Pickleball RSVP", inviteMessage());
-  els.textInvite.href = smsLink(phones, inviteMessage());
-  els.emailReminder.href = mailtoLink(confirmedEmails, "Pickleball reminder", reminderMessage());
-  els.textReminder.href = smsLink(confirmedPhones, reminderMessage());
-  setActionState(els.emailInvite, Boolean(emails), "Add email addresses to use this.");
-  setActionState(els.textInvite, Boolean(phones), "Add phone numbers to use this.");
-  setActionState(els.emailReminder, Boolean(confirmedEmails), "Confirm players with emails first.");
-  setActionState(els.textReminder, Boolean(confirmedPhones), "Confirm players with phone numbers first.");
+  setActionState(els.sendInvites, Boolean(emails), "Add email addresses to use this.");
+  setActionState(els.sendReminders, Boolean(confirmedEmails), "Confirm players with emails first.");
 }
 
 function setActionState(element, enabled, disabledTitle) {
   element.classList.toggle("disabled", !enabled);
   element.setAttribute("aria-disabled", enabled ? "false" : "true");
   element.title = enabled ? "" : disabledTitle;
+  element.disabled = !enabled;
 }
 
-function mailtoLink(recipients, subject, body) {
-  if (!recipients) return "#";
-  return `mailto:${recipients}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+async function sendInvites() {
+  await sendEmailAction("/api/send-invites", "Sending invites...");
 }
 
-function smsLink(recipients, body) {
-  if (!recipients) return "#";
-  return `sms:${recipients}?body=${encodeURIComponent(body)}`;
+async function sendReminders() {
+  await sendEmailAction("/api/send-reminders", "Sending reminders...");
 }
 
-function handleDisabledLink(event) {
-  if (event.currentTarget.getAttribute("href") === "#") {
-    event.preventDefault();
+async function sendEmailAction(endpoint, loadingMessage) {
+  try {
+    state.saving = true;
+    setStatus(loadingMessage);
+    render();
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gameId: state.game.id }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Email request failed");
+    setStatus(`Sent ${body.sent} email${body.sent === 1 ? "" : "s"}.`);
+  } catch (error) {
+    console.error(error);
+    setStatus(`Could not send email: ${error.message}`, true);
+  } finally {
+    state.saving = false;
+    render();
   }
 }
 
@@ -375,10 +402,8 @@ function setStatus(message, isError = false) {
 }
 
 els.friendForm.addEventListener("submit", addFriend);
-els.emailInvite.addEventListener("click", handleDisabledLink);
-els.textInvite.addEventListener("click", handleDisabledLink);
-els.emailReminder.addEventListener("click", handleDisabledLink);
-els.textReminder.addEventListener("click", handleDisabledLink);
+els.sendInvites.addEventListener("click", sendInvites);
+els.sendReminders.addEventListener("click", sendReminders);
 els.resetApp.addEventListener("click", resetRsvps);
 
 els.eventTime.addEventListener("input", () => saveGameField("game_time", els.eventTime.value));

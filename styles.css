@@ -223,6 +223,11 @@ input:focus {
   opacity: 0.48;
 }
 
+.primary-action:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
 .main-grid {
   display: grid;
   grid-template-columns: minmax(290px, 0.95fr) minmax(0, 1.35fr);
