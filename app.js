@@ -19,6 +19,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const state = {
   game: null,
   friends: [],
+  personalInvite: null,
   editingFriendId: null,
   saving: false,
 };
@@ -31,6 +32,15 @@ const els = {
   sendInvites: document.querySelector("#sendInvites"),
   sendReminders: document.querySelector("#sendReminders"),
   resetApp: document.querySelector("#resetApp"),
+  personalPanel: document.querySelector("#personalPanel"),
+  personalName: document.querySelector("#personalName"),
+  personalDetails: document.querySelector("#personalDetails"),
+  personalStatus: document.querySelector("#personalStatus"),
+  personalYes: document.querySelector("#personalYes"),
+  personalNo: document.querySelector("#personalNo"),
+  personalConfirmedList: document.querySelector("#personalConfirmedList"),
+  personalWaitlistList: document.querySelector("#personalWaitlistList"),
+  organizerSections: document.querySelectorAll(".organizer-only"),
   friendForm: document.querySelector("#friendForm"),
   friendName: document.querySelector("#friendName"),
   friendEmail: document.querySelector("#friendEmail"),
@@ -49,7 +59,9 @@ async function init() {
     setStatus("Connecting to shared game...");
     await loadOrCreateGame();
     await loadFriends();
-    if (!state.friends.length) {
+    if (isPersonalView()) {
+      state.personalInvite = state.friends.find((friend) => friend.id === state.personalInvite.id) || state.personalInvite;
+    } else if (!state.friends.length) {
       await createDefaultInvitees();
       await loadFriends();
     } else {
@@ -66,7 +78,26 @@ async function init() {
 }
 
 async function loadOrCreateGame() {
-  const requestedGameId = new URLSearchParams(window.location.search).get("game");
+  const params = new URLSearchParams(window.location.search);
+  const requestedGameId = params.get("game");
+  const inviteToken = params.get("invite");
+
+  if (inviteToken) {
+    const { data: invitee, error: inviteError } = await db
+      .from("invitees")
+      .select("*")
+      .eq("token", inviteToken)
+      .single();
+
+    if (inviteError) throw inviteError;
+
+    const { data: game, error: gameError } = await db.from("games").select("*").eq("id", invitee.game_id).single();
+    if (gameError) throw gameError;
+
+    state.personalInvite = invitee;
+    state.game = game;
+    return;
+  }
 
   if (requestedGameId) {
     const { data, error } = await db.from("games").select("*").eq("id", requestedGameId).single();
@@ -182,6 +213,16 @@ function byResponse(a, b) {
 }
 
 function render() {
+  if (isPersonalView()) {
+    renderPersonalView();
+    return;
+  }
+
+  els.personalPanel.hidden = true;
+  els.organizerSections.forEach((section) => {
+    section.hidden = false;
+  });
+
   els.eventTime.value = state.game.game_time;
   els.eventLocation.value = state.game.location;
   els.eventNote.value = state.game.note;
@@ -191,6 +232,25 @@ function render() {
   renderFriends();
   renderStatusLists();
   updateSendButtons();
+}
+
+function renderPersonalView() {
+  const friend = personalFriend();
+
+  els.personalPanel.hidden = false;
+  els.organizerSections.forEach((section) => {
+    section.hidden = true;
+  });
+
+  els.personalName.textContent = `${friend.name}, can you play?`;
+  els.personalDetails.textContent = `${state.game.game_time.trim()} at ${state.game.location.trim()}. ${state.game.note.trim()}`;
+  els.personalStatus.textContent = personalStatusLabel(friend);
+
+  els.personalYes.disabled = friend.status === "confirmed" || friend.status === "waitlist" || state.saving;
+  els.personalNo.disabled = friend.status === "declined" || state.saving;
+  els.personalYes.textContent = friend.status === "waitlist" ? "You're on the waitlist" : "Yes, I can play";
+  renderNameList(els.personalConfirmedList, confirmedFriends(), "No one is confirmed yet.");
+  renderNameList(els.personalWaitlistList, waitlistedFriends(), "No waitlist yet.");
 }
 
 function renderFriends() {
@@ -289,6 +349,21 @@ function contactLabel(friend) {
   if (friend.status === "waitlist") parts.push("waitlist");
   if (friend.status === "declined") parts.push("declined");
   return parts.length ? parts.join(" | ") : "No contact saved";
+}
+
+function isPersonalView() {
+  return Boolean(state.personalInvite);
+}
+
+function personalFriend() {
+  return state.friends.find((friend) => friend.id === state.personalInvite.id) || state.personalInvite;
+}
+
+function personalStatusLabel(friend) {
+  if (friend.status === "confirmed") return "You're in. See you on the court.";
+  if (friend.status === "waitlist") return "You're on the waitlist. If a spot opens, you're next up.";
+  if (friend.status === "declined") return "You're marked as not playing.";
+  return "First 4 yeses get a spot.";
 }
 
 async function markYes(id) {
@@ -404,6 +479,13 @@ function shareUrl() {
   return url.toString();
 }
 
+function personalInviteUrl(friend) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("game", state.game.id);
+  url.searchParams.set("invite", friend.token);
+  return url.toString();
+}
+
 function updateSendButtons() {
   const emails = state.friends.map((friend) => friend.email).filter(Boolean).join(",");
   const confirmedEmails = confirmedFriends().map((friend) => friend.email).filter(Boolean).join(",");
@@ -476,6 +558,8 @@ els.friendForm.addEventListener("submit", addFriend);
 els.sendInvites.addEventListener("click", sendInvites);
 els.sendReminders.addEventListener("click", sendReminders);
 els.resetApp.addEventListener("click", resetRsvps);
+els.personalYes.addEventListener("click", () => markYes(personalFriend().id));
+els.personalNo.addEventListener("click", () => markDeclined(personalFriend().id));
 
 els.eventTime.addEventListener("input", () => saveGameField("game_time", els.eventTime.value));
 els.eventLocation.addEventListener("input", () => saveGameField("location", els.eventLocation.value));

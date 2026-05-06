@@ -25,7 +25,31 @@
 
         <div id="appStatus" class="app-status">Connecting to shared game...</div>
 
-        <section class="event-panel">
+        <section id="personalPanel" class="personal-panel" hidden>
+          <div>
+            <p class="eyebrow dark">Your invite</p>
+            <h2 id="personalName">Can you play?</h2>
+            <p id="personalDetails"></p>
+          </div>
+          <div id="personalStatus" class="personal-status"></div>
+          <div class="personal-actions">
+            <button id="personalYes" class="primary-action" type="button">Yes, I can play</button>
+            <button id="personalNo" class="primary-action quiet" type="button">No, I can't</button>
+          </div>
+
+          <div class="personal-rsvps">
+            <section>
+              <h3>Confirmed</h3>
+              <div id="personalConfirmedList" class="status-list"></div>
+            </section>
+            <section>
+              <h3>Waitlist</h3>
+              <div id="personalWaitlistList" class="status-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="event-panel organizer-only">
           <label>
             Date and time
             <input id="eventTime" type="text" value="Thursday at 6:00 PM" maxlength="48" />
@@ -40,12 +64,12 @@
           </label>
         </section>
 
-        <section class="action-strip">
+        <section class="action-strip organizer-only">
           <button id="sendInvites" class="primary-action" type="button">Send invites</button>
           <button id="sendReminders" class="primary-action quiet" type="button">Send reminders</button>
         </section>
 
-        <section class="main-grid">
+        <section class="main-grid organizer-only">
           <aside class="panel">
             <div class="section-heading">
               <h2>Friends</h2>
