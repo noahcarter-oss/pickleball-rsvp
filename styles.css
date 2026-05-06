@@ -2,15 +2,17 @@
   color-scheme: light;
   --ink: #202522;
   --muted: #667169;
-  --line: #d8ded8;
+  --line: #dce6d8;
   --panel: #ffffff;
-  --field: #f7f9f5;
+  --field: #f7fbef;
   --court: #2f7d64;
   --court-dark: #215848;
   --lime: #d8f26a;
-  --clay: #cf6d43;
-  --blue: #3f6fb3;
-  --shadow: 0 18px 48px rgba(32, 37, 34, 0.12);
+  --sun: #ffe071;
+  --clay: #f47f4b;
+  --blue: #4e79d8;
+  --sky: #bfe8ff;
+  --shadow: 0 20px 52px rgba(32, 37, 34, 0.13);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -23,8 +25,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(120deg, rgba(47, 125, 100, 0.12), transparent 42%),
-    linear-gradient(180deg, #fbfcf9, #edf4e8);
+    radial-gradient(circle at 18% 12%, rgba(216, 242, 106, 0.48), transparent 25%),
+    radial-gradient(circle at 85% 20%, rgba(191, 232, 255, 0.68), transparent 26%),
+    linear-gradient(180deg, #fffef7, #edf7e8 72%, #e5f1dc);
   color: var(--ink);
 }
 
@@ -56,16 +59,16 @@ p {
 
 .app-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 28px;
 }
 
 .workspace {
-  width: min(1080px, 100%);
+  width: min(1120px, 100%);
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(216, 222, 216, 0.9);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(220, 230, 216, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow);
 }
 
@@ -78,15 +81,63 @@ p {
 }
 
 .hero {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  min-height: 210px;
   color: white;
+  background: linear-gradient(135deg, #1d765c, #36a776);
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.court-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.28;
   background:
-    linear-gradient(rgba(33, 88, 72, 0.87), rgba(33, 88, 72, 0.87)),
-    repeating-linear-gradient(90deg, transparent 0 56px, rgba(255, 255, 255, 0.14) 56px 58px),
-    var(--court);
+    linear-gradient(90deg, transparent 49%, white 49% 51%, transparent 51%),
+    linear-gradient(transparent 48%, white 48% 52%, transparent 52%),
+    linear-gradient(90deg, transparent 24%, white 24% 25%, transparent 25% 75%, white 75% 76%, transparent 76%);
+}
+
+.pickleball-art {
+  position: absolute;
+  right: 74px;
+  bottom: 26px;
+  width: 92px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.92), transparent 18%),
+    var(--lime);
+  box-shadow: 0 16px 30px rgba(23, 71, 57, 0.26);
+}
+
+.pickleball-art::before,
+.pickleball-art::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(23, 71, 57, 0.34);
+}
+
+.pickleball-art::before {
+  top: 31px;
+  left: 28px;
+}
+
+.pickleball-art::after {
+  right: 25px;
+  bottom: 28px;
 }
 
 .eyebrow {
@@ -99,7 +150,8 @@ p {
 }
 
 h1 {
-  font-size: clamp(2rem, 5vw, 4rem);
+  max-width: 620px;
+  font-size: clamp(2.7rem, 6vw, 5.2rem);
   line-height: 0.95;
   letter-spacing: 0;
 }
@@ -126,7 +178,7 @@ h3 {
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.14);
   color: white;
   font-size: 1.24rem;
@@ -147,7 +199,7 @@ h3 {
 
 .app-status {
   border-bottom: 1px solid var(--line);
-  background: #f7f9f5;
+  background: #fbfff1;
   color: var(--court-dark);
   font-size: 0.86rem;
   font-weight: 750;
@@ -177,7 +229,7 @@ input {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: white;
   color: var(--ink);
   outline: none;
@@ -201,7 +253,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--clay);
   color: white;
   font-weight: 850;
@@ -213,7 +265,7 @@ input:focus {
 }
 
 .primary-action.quiet {
-  background: var(--field);
+  background: #ffffff;
   color: var(--court-dark);
   border: 1px solid var(--line);
 }
@@ -249,7 +301,7 @@ input:focus {
   min-width: 42px;
   height: 28px;
   border-radius: 999px;
-  background: var(--field);
+  background: var(--lime);
   color: var(--court-dark);
   font-weight: 850;
 }
@@ -263,7 +315,7 @@ input:focus {
 
 .friend-form button {
   min-height: 44px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--court);
   color: white;
   font-weight: 850;
@@ -279,7 +331,7 @@ input:focus {
 .status-pill,
 .message-preview {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--panel);
 }
 
@@ -298,12 +350,12 @@ input:focus {
 
 .friend-row.confirmed {
   border-color: rgba(47, 125, 100, 0.45);
-  background: #f4fbf3;
+  background: #f3fbea;
 }
 
 .friend-row.waitlist {
-  border-color: rgba(63, 111, 179, 0.38);
-  background: #f4f7fc;
+  border-color: rgba(78, 121, 216, 0.38);
+  background: #f1f7ff;
 }
 
 .friend-row.declined {
@@ -329,7 +381,7 @@ input:focus {
 .row-actions button {
   min-width: 44px;
   min-height: 36px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--field);
   color: var(--court-dark);
   font-weight: 850;
@@ -341,12 +393,12 @@ input:focus {
 }
 
 .row-actions .no {
-  background: #fff0eb;
+  background: #fff2ea;
   color: #984c31;
 }
 
 .row-actions .edit {
-  background: #eef4ff;
+  background: #eef7ff;
   color: #244d8f;
 }
 
@@ -376,7 +428,7 @@ input:focus {
 
 .edit-actions button {
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: 10px;
   color: white;
   font-weight: 850;
 }
@@ -410,7 +462,7 @@ input:focus {
   place-items: center;
   min-height: 56px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(247, 249, 245, 0.75);
   text-align: center;
 }
@@ -419,7 +471,7 @@ input:focus {
   display: grid;
   gap: 8px;
   padding: 14px;
-  background: var(--field);
+  background: #fbfff1;
 }
 
 @media (max-width: 760px) {
@@ -441,6 +493,17 @@ input:focus {
   .status-grid,
   .friend-row {
     grid-template-columns: 1fr;
+  }
+
+  .hero {
+    min-height: 230px;
+    align-items: start;
+  }
+
+  .pickleball-art {
+    width: 76px;
+    right: 24px;
+    bottom: 20px;
   }
 
   .action-strip,
