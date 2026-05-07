@@ -80,7 +80,7 @@ async function init() {
 async function loadOrCreateGame() {
   const params = new URLSearchParams(window.location.search);
   const requestedGameId = params.get("game");
-  const inviteToken = params.get("invite");
+  const inviteToken = params.get("rsvp") || params.get("invite");
 
   if (inviteToken) {
     const { data: invitee, error: inviteError } = await db
@@ -352,10 +352,12 @@ function contactLabel(friend) {
 }
 
 function isPersonalView() {
-  return Boolean(state.personalInvite);
+  const params = new URLSearchParams(window.location.search);
+  return Boolean(state.personalInvite || params.get("rsvp") || params.get("invite"));
 }
 
 function personalFriend() {
+  if (!state.personalInvite) return null;
   return state.friends.find((friend) => friend.id === state.personalInvite.id) || state.personalInvite;
 }
 
@@ -482,7 +484,8 @@ function shareUrl() {
 function personalInviteUrl(friend) {
   const url = new URL(window.location.href);
   url.searchParams.set("game", state.game.id);
-  url.searchParams.set("invite", friend.token);
+  url.searchParams.set("rsvp", friend.token);
+  url.searchParams.delete("invite");
   return url.toString();
 }
 
